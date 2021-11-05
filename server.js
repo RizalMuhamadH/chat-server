@@ -1,6 +1,6 @@
 const express = require('express');
 const app = express();
-const instrument = require("@socket.io/admin-ui");
+const { instrument } = require("@socket.io/admin-ui");
 const http = require('http').Server(app);
 const io = require('socket.io')(http, {
     cors: {
