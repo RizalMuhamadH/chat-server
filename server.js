@@ -2,12 +2,21 @@ const express = require('express');
 const app = express();
 const { instrument } = require("@socket.io/admin-ui");
 const http = require('http').Server(app);
-const io = require('socket.io')(http, {
-    cors: {
-        origin: ["https://admin.socket.io"],
-        credentials: true
-    }
-});
+// const io = require('socket.io')({
+//     cors: {
+//         origin: ["https://admin.socket.io"],
+//         credentials: true
+//     }
+// });
+
+const { Server } = require("socket.io");
+
+const io = new Server(3000, {
+        cors: {
+            origin: ["https://admin.socket.io"],
+            credentials: true
+        }
+    });
 
 instrument(io, {
     auth: {
@@ -17,52 +26,66 @@ instrument(io, {
     }
 });
 
-app.get('/', function (req, res) {
-    res.send('Hello world!');
-});
+// app.get('/', function (req, res) {
+//     res.send('Hello world!');
+// });
 
-io.on("connection", (socket) => {
-    socket.on('user', ({ room, name }) => {
-        socket.join(room)
+io.on("connect", (socket) => {
+
+    socket.on('user', (userId) => {
+
+        socket.join(userId)
     })
 
-    socket.on('room', ({ room, name }) => {
-        socket.join(room)
-        socket.to(room).emit('user-connected', name)
+    socket.on('new-room', ({userIds, room}) =>{
+        socket.to(userIds).emit('new-room', room)
     })
 
-    socket.on('send-message', ({ room, email, message, user }) => {
-        socket.to(room).emit('new-message', { message: message, name: room })
-        socket.to(user).emit('notify-message', { message: message, email: email })
+    socket.on('room', ({ roomId, user }) => {
+        socket.join(roomId)
+        socket.to(roomId).emit('user-connected', user)
     })
 
-    socket.on('action-message', ({ room, email, action, key, message }) => {
-        socket.to(room).emit('action-message', { email: email, action: action, key: key })
-        socket.to(user).emit('notify-message', { message: message, email: email, action: action })
+    socket.on('send-message', ({ roomId, message, userIds }) => {
+        // socket.to(roomId).emit('new-message', message)
+        socket.to(userIds).emit('notify-message', message)
     })
 
-    socket.on('user-action', ({ room, email, action, message }) => {
-        socket.to(room).emit('user-action', { email: email, action: action, message: message })
+    socket.on('action-message', ({ roomId, userIds, action, message }) => {
+        // socket.to(roomId).emit('action-message', { message: message, action: action })
+        socket.to(userIds).emit('notify-message', { message: message, action: action })
     })
 
-    socket.on('typing', ({ room, email }) => {
-        socket.to(room).emit('typing', {
-            email: email
+    socket.on('user-action', ({ roomId, userIds, action, message }) => {
+        // socket.to(roomId).emit('room-action', { action: action, message: message })
+        socket.to(userIds).emit('user-action', { action: action, message: message })
+    })
+
+    socket.on('typing', ({ roomId, userId }) => {
+        socket.to(roomId).emit('typing', {
+            userId: userId
         })
     })
 
-    socket.on('stop-typing', ({ room, email }) => {
-        socket.to(room).emit('stop-typing', {
-            email: email
+    socket.on('stop-typing', ({ roomId, userId }) => {
+        socket.to(roomId).emit('stop-typing', {
+            userId: userId
         })
     })
 
-    socket.on('disconnect', ({ room, email, message }) => {
-        socket.to(room).emit('disconnect', { email, message });
-        console.log('diconnect ' + email)
+    socket.on("leave", (roomId)=>{
+        socket.leave(roomId)
+    })
+
+    socket.on('disconnect', () => {
+        console.log('disconnect');
+        // socket.to(room).emit('disconnect', { email, message });
+        // console.log('diconnect ' + email)
     })
 })
 
-const server = http.listen(3000, function () {
-    console.log('listening on *:8080');
-});
+// const server = http.listen(3000, function () {
+//     console.log('listening on *:3000');
+// });
+
+// io.listen(3000);
